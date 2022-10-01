@@ -1,9 +1,8 @@
-#!/bin/sh
-PATH=/usr/local/bin:/usr/local/sbin:~/bin:/usr/bin:/bin:/usr/sbin:/sbin
+#!/bin/bash
+PATH=/usr/local/bin:/usr/local/sbin:~/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
 
 readonly SCRIPT=$(basename "$0")
 readonly VERSION='1.1.0'
-RESOLUTIONS=(1920x1200 1920x1080 UHD)
 MONITOR="0" # 0 means all monitors
 
 usage() {
@@ -16,17 +15,10 @@ Usage:
 Options:
   -f --force                     Force download of picture. This will overwrite
                                  the picture if the filename already exists.
-  -s --ssl                       Communicate with bing.com over SSL.
   -q --quiet                     Do not display log messages.
-  -n --filename <file name>      The name of the downloaded picture. Defaults to
-                                 the upstream name.
   -p --picturedir <picture dir>  The full path to the picture download dir.
                                  Will be created if it does not exist.
                                  [default: $HOME/Pictures/bing-wallpapers/]
-  -r --resolution <resolution>   The resolution of the image to retrieve.
-                                 Supported resolutions: ${RESOLUTIONS[*]}
-  --resolutions <resolutions>    The resolutions of the image try to retrieve.
-                                 eg.: --resolutions "1920x1200 1920x1080 UHD"
   -m --monitor <num>             Set wallpaper only on certain monitor (1,2,3...)                                                       
   -h --help                      Show this screen.
   --version                      Show version.
@@ -40,10 +32,10 @@ print_message() {
 }
 
 download_image_curl () {
-    local RES=$1
-    FILEURLWITHRES=$(echo "$FILEURL" | sed -e "s/tmb/$RES/")
-    FILENAME=${FILEURLWITHRES/th\?id=/}
-    FILEWHOLEURL="$PROTO://bing.com/$FILEURLWITHRES"
+    FILEURLWITHRES=$(echo "$FILEURL")
+    FILENAME=${FILEURLWITHRES##*th?id=}
+    FILENAME=${FILENAME%&rf*}
+    FILEWHOLEURL="https://bing.com$FILEURLWITHRES"
 
     if [ $FORCE ] || [ ! -f "$PICTURE_DIR/$FILENAME" ]; then
         find $PICTURE_DIR -type f -iname \*.jpg -delete
@@ -67,6 +59,9 @@ set_wallpaper () {
     local FILEPATH=$1
     local MONITOR=$2
 
+    echo $FILEPATH
+    echo $MONITOR
+
     if [ "$MONITOR" -ge 1 ] 2>/dev/null; then
     print_message "Setting wallpaper for monitor: $MONITOR"
     osascript - << EOF
@@ -82,23 +77,15 @@ EOF
 }
 
 # Defaults
-PICTURE_DIR="$HOME/Pictures/bing-wallpapers/"
+PICTURE_DIR="$HOME/Pictures/bing-wallpapers"
 
 # Option parsing
 while [[ $# -gt 0 ]]; do
     key="$1"
 
     case $key in
-        -r|--resolution)
-            RESOLUTION="$2"
-            shift
-            ;;
         -p|--picturedir)
             PICTURE_DIR="$2"
-            shift
-            ;;
-        -n|--filename)
-            FILENAME="$2"
             shift
             ;;
         -m|--monitor)
@@ -108,19 +95,12 @@ while [[ $# -gt 0 ]]; do
         -f|--force)
             FORCE=true
             ;;
-        -s|--ssl)
-            SSL=true
-            ;;
         -q|--quiet)
             QUIET=true
             ;;
         -h|--help)
             usage
             exit 0
-            ;;
-        --resolutions)
-            RESOLUTIONS="$2"
-            shift
             ;;
         --version)
             printf "%s\n" $VERSION
@@ -137,28 +117,15 @@ done
 
 # Set options
 [ $QUIET ] && CURL_QUIET='-s'
-[ $SSL ]   && PROTO='https'   || PROTO='http'
 
 # Create picture directory if it doesn't already exist
 mkdir -p "${PICTURE_DIR}"
 
 # Parse bing.com and acquire picture URL(s)
-FILEURL=( $(curl -sL https://www.bing.com | \
-    grep -Eo "th\?id=.*?.jpg") )
+FILEURL=( $(curl -sL 'https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=10&nc=1612409408851&pid=hp&FORM=BEHPTB&uhd=1&uhdwidth=3840&uhdheight=2160' | jq -r '.images[0].url') )
 
-if [ $RESOLUTION ]; then
-    download_image_curl $RESOLUTION
-    if [ "$FILEPATH" ]; then
-        set_wallpaper $FILEPATH $MONITOR
-    fi
-    exit 1
+download_image_curl $RESOLUTION
+if [ "$FILEPATH" ]; then
+    set_wallpaper $FILEPATH $MONITOR
 fi
-
-for RESOLUTION in "${RESOLUTIONS[@]}"
-    do
-        download_image_curl $RESOLUTION
-        if [ "$FILEPATH" ]; then
-            set_wallpaper $FILEPATH $MONITOR
-            exit 1
-        fi
-    done
+exit 1
