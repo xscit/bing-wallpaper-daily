@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 PATH=/usr/local/bin:/usr/local/sbin:~/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
 
 readonly SCRIPT=$(basename "$0")
@@ -32,16 +32,15 @@ print_message() {
 }
 
 download_image_curl () {
-    FILEURLWITHRES=$(echo "$FILEURL")
-    FILENAME=${FILEURLWITHRES##*th?id=}
+    FILENAME=${FILEURL##*th?id=}
     FILENAME=${FILENAME%&rf*}
-    FILEWHOLEURL="https://bing.com$FILEURLWITHRES"
+    FILEWHOLEURL="https://bing.com$FILEURL"
 
     if [ $FORCE ] || [ ! -f "$PICTURE_DIR/$FILENAME" ]; then
-        find $PICTURE_DIR -type f -iname \*.jpg -delete
+        find "$PICTURE_DIR" -type f -name "$FILENAME" -delete
         print_message "Downloading: $FILENAME..."
         curl --fail -Lo "$PICTURE_DIR/$FILENAME" "$FILEWHOLEURL"
-        if [ "$?" == "0" ]; then
+        if [ "$?" = "0" ]; then
             FILEPATH="$PICTURE_DIR/$FILENAME"
             return
         fi
@@ -122,10 +121,10 @@ done
 mkdir -p "${PICTURE_DIR}"
 
 # Parse bing.com and acquire picture URL(s)
-FILEURL=( $(curl -sL 'https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=10&nc=1612409408851&pid=hp&FORM=BEHPTB&uhd=1&uhdwidth=3840&uhdheight=2160' | jq -r '.images[0].url') )
+FILEURL=( $(curl -sL 'https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=10&nc=1612409408851&pid=hp&FORM=BEHPTB&uhd=1&uhdwidth=3840&uhdheight=2400' | jq -r '.images[0].url') )
 
-download_image_curl $RESOLUTION
+download_image_curl
 if [ "$FILEPATH" ]; then
     set_wallpaper $FILEPATH $MONITOR
 fi
-exit 1
+exit 0
