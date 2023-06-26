@@ -128,3 +128,4 @@ if [ "$FILEPATH" ]; then
     set_wallpaper $FILEPATH $MONITOR
 fi
 exit 0
+
